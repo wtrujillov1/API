@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#172d29">
+  <title>En orden · Gestor de tareas</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Ir al contenido</a>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="En orden, inicio"><span class="brand-mark" aria-hidden="true">✓</span> en orden<span class="brand-dot">.</span></a>
+    <span class="header-caption">Un espacio para avanzar</span>
+    <div id="account" class="account" hidden><span id="username"></span><button id="logout" class="button button-quiet" type="button">Cerrar sesión</button></div>
+  </header>
+
+  <main id="main" class="shell">
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+    <section id="auth-view" class="auth-layout" aria-labelledby="welcome-title">
+      <div class="welcome">
+        <p class="eyebrow">MENOS RUIDO. MÁS CLARIDAD.</p>
+        <h1 id="welcome-title">Tus ideas,<br>en movimiento.</h1>
+        <p class="lead">Organiza lo pendiente, celebra lo terminado y mantén tus tareas al día, incluso entre varias pestañas.</p>
+        <div class="feature-list"><span>01 <strong>Tu espacio personal</strong></span><span>02 <strong>Cambios en tiempo real</strong></span><span>03 <strong>Progreso que permanece</strong></span></div>
+        <p class="footnote">Demo de API REST · Persistencia · Sesiones · Eventos</p>
+      </div>
+      <div class="auth-card">
+        <p class="eyebrow">BIENVENIDO A TU ESPACIO</p>
+        <h2 id="auth-title">Empieza por aquí.</h2>
+        <p id="auth-description" class="muted">Inicia sesión para continuar con tus tareas.</p>
+        <form id="auth-form">
+          <label for="auth-username">Usuario</label>
+          <input id="auth-username" name="username" autocomplete="username" required minlength="3" maxlength="40" pattern="[a-zA-Z0-9_]+" placeholder="tu_usuario" aria-describedby="username-help">
+          <small id="username-help">3–40 caracteres: letras, números o guion bajo.</small>
+          <label for="auth-password">Contraseña</label>
+          <input id="auth-password" name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="128" placeholder="Al menos 8 caracteres">
+          <button id="auth-submit" class="button button-primary button-wide" type="submit">Entrar a mi espacio <span aria-hidden="true">↗</span></button>
+        </form>
+        <p class="auth-switch"><span id="auth-switch-label">¿Es tu primera visita?</span> <button id="auth-switch" class="text-button" type="button">Crear una cuenta</button></p>
+      </div>
+    </section>
+
+    <section id="workspace-view" hidden aria-labelledby="workspace-title">
+      <div class="workspace-heading"><div><p class="eyebrow">UN PASO A LA VEZ</p><h1 id="workspace-title">Lo que viene.</h1><p class="muted">Dale un lugar a cada pendiente.</p></div><span id="connection" class="connection" role="status">Conectando…</span></div>
+      <div class="workspace-grid">
+        <aside class="composer" aria-labelledby="composer-title">
+          <span class="section-index" aria-hidden="true">+</span><h2 id="composer-title">Una nueva tarea</h2><p class="muted">Lo grande empieza por algo pequeño.</p>
+          <form id="create-form">
+            <label for="new-title">¿Qué tienes en mente?</label><input id="new-title" name="title" required maxlength="120" placeholder="Por ejemplo, preparar la presentación">
+            <label for="new-description">Detalles <span class="optional">opcional</span></label><textarea id="new-description" name="description" rows="4" maxlength="2000" placeholder="Un poco de contexto ayuda…"></textarea>
+            <label for="new-status">Estado inicial</label><select id="new-status" name="status"><option value="pending">Pendiente</option><option value="in_progress">En curso</option><option value="completed">Completada</option></select>
+            <button class="button button-primary button-wide" type="submit">Añadir tarea <span aria-hidden="true">+</span></button>
+          </form>
+        </aside>
+        <section class="task-section" aria-labelledby="tasks-title">
+          <div class="list-heading"><h2 id="tasks-title">Mis tareas <span id="task-count" class="count">0</span></h2><button id="refresh" class="button button-quiet" type="button">↻ Actualizar</button></div>
+          <div class="filter-row" role="group" aria-label="Filtrar tareas"><button class="filter active" data-filter="all" type="button" aria-pressed="true">Todas</button><button class="filter" data-filter="pending" type="button" aria-pressed="false">Pendientes</button><button class="filter" data-filter="in_progress" type="button" aria-pressed="false">En curso</button><button class="filter" data-filter="completed" type="button" aria-pressed="false">Completadas</button></div>
+          <div id="task-list" class="task-list" aria-live="polite"></div>
+          <div id="empty-state" class="empty-state" hidden><span aria-hidden="true">↗</span><h3>Espacio para lo que sigue.</h3><p>Añade una tarea o elige otro filtro para empezar.</p></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="edit-dialog" aria-labelledby="edit-title"><form id="edit-form"><div class="dialog-heading"><h2 id="edit-title">Editar tarea</h2><button id="close-edit" class="icon-button" type="button" aria-label="Cerrar edición">×</button></div><p id="edit-notice" class="notice error" role="alert" hidden></p><label for="edit-task-title">Título</label><input id="edit-task-title" required maxlength="120"><label for="edit-description">Detalles</label><textarea id="edit-description" rows="4" maxlength="2000"></textarea><label for="edit-status">Estado</label><select id="edit-status"><option value="pending">Pendiente</option><option value="in_progress">En curso</option><option value="completed">Completada</option></select><p class="muted small">Si otra pestaña modifica esta tarea, recibirás un aviso para revisar los cambios.</p><button class="button button-primary button-wide" type="submit">Guardar cambios</button></form></dialog>
+  <footer class="site-footer"><span>Hecho para avanzar, a tu ritmo.</span><span>EN ORDEN / API REST</span></footer>
+</body>
+</html>

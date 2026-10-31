@@ -1,0 +1,20 @@
+{
+  "name": "api-tareas-u2",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API REST de tareas con SQLite, sesiones y eventos SSE",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test --test-concurrency=1",
+    "check": "node --check src/app.js && node --check src/server.js && node --check public/app.js"
+  },
+  "dependencies": {
+    "express": "5.1.0",
+    "express-session": "1.18.2"
+  }
+}
