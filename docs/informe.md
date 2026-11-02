@@ -1,49 +1,61 @@
-# API REST de tareas con persistencia, sesiones y tiempo real
+# API REST para la gestión de tareas
 
-**Autor:** pendiente de completar
+**Persistencia, sesiones y notificaciones en tiempo real**
+
+**Autor:** Wilmer Andrés Trujillo Vera
 
 **Repositorio:** https://github.com/wtrujillov1/API
 
-**Demostración pública:** pendiente de despliegue; la interfaz se ejecuta localmente con `npm start`.
+**Demostración:** ejecución local mediante la interfaz incluida.
 
-## Objetivo y diseño
+## 1. Propósito y organización
 
-Se desarrolla una API para que cada usuario registre y gestione sus tareas. La solución integra Node.js 24, Express 5, SQLite y una interfaz web en español. Se elige SQLite por su persistencia en disco sin un servicio externo; el módulo `node:sqlite` permite consultas parametrizadas. La aplicación separa composición HTTP, validación, persistencia y arranque, y mantiene las transformaciones de entrada separadas de las operaciones de E/S.
+Se desarrolló una API REST para que cada usuario pueda registrar, consultar, actualizar y eliminar sus tareas. El proyecto utiliza Node.js 24, Express 5 y SQLite. Incluye una interfaz web en español para demostrar las operaciones y observar los cambios desde dos pestañas.
 
-## Contrato REST y validación
+El código se divide en rutas HTTP, validación, autenticación y acceso a datos. Las funciones que normalizan y comprueban las entradas se mantienen separadas de las consultas a la base de datos. Esta organización facilita revisar cada responsabilidad y evita mezclar las reglas de una tarea con la forma de almacenarla.
 
-| Operación | Ruta | Respuesta |
-| --- | --- | --- |
-| Registro / acceso | `POST /api/auth/register`, `POST /api/auth/login` | `201` / `200` |
-| Sesión / cierre | `GET /api/auth/me`, `POST /api/auth/logout` | `200` / `204` |
-| Consulta / creación | `GET /api/tasks`, `GET /api/tasks/:id`, `POST /api/tasks` | `200` / `201` |
-| Actualización | `PATCH /api/tasks/:id` | `200` |
-| Eliminación | `DELETE /api/tasks/:id?version=N` | `204` |
-| Tiempo real | `GET /api/events` | Flujo SSE autenticado |
+## 2. Operaciones y validación
 
-Una tarea contiene identificador UUID, título de 1–120 caracteres, descripción de hasta 2000, estado (`pending`, `in_progress`, `completed`), versión y fechas; título y descripción rechazan el carácter NUL. Las respuestas con contenido usan `{data: ...}`; los errores, `{error: {code, message, details?}}`. Se emplean `400` para entradas inválidas, `401` sin sesión, `404` para recursos no accesibles y `409` para conflictos; también `403` por origen prohibido, `413` por cuerpo superior a 16 KB, `415` por formato o codificación no admitidos y `503` si SQLite está ocupado. La actualización y eliminación exigen la versión conocida: una escritura anterior no puede sobrescribir cambios más recientes.
+| Operación | Método y ruta | Respuesta |
+|:--|:--|:--|
+| Registro e inicio de sesión | `POST /api/auth/register`<br>`POST /api/auth/login` | 201 / 200 |
+| Consultar y cerrar sesión | `GET /api/auth/me`<br>`POST /api/auth/logout` | 200 / 204 |
+| Listar y consultar tareas | `GET /api/tasks`<br>`GET /api/tasks/:id` | 200 |
+| Crear una tarea | `POST /api/tasks` | 201 |
+| Modificar una tarea | `PATCH /api/tasks/:id` | 200 |
+| Eliminar una tarea | `DELETE /api/tasks/:id?version=N` | 204 |
+| Recibir notificaciones | `GET /api/events` | Flujo SSE |
 
-Ejemplo: `POST /api/tasks` con `{"title":"Preparar informe"}` devuelve `201` y una tarea de versión `1`. Un `PATCH` con `{"status":"completed","version":1}` devuelve la tarea actualizada. Reutilizar la versión anterior produce `409`. El README incluye peticiones completas con `curl`, cookies y respuestas de ejemplo.
+Cada tarea tiene un identificador, título, descripción, estado, versión y fechas de creación y actualización. El título admite entre 1 y 120 caracteres y la descripción, hasta 2000. Los estados permitidos son `pending`, `in_progress` y `completed`. La entrada se valida antes de guardar los datos.
 
-## Persistencia, sesión y seguridad
+Las respuestas con contenido siguen el formato `{"data": ...}` y los errores, `{"error": {"code": ..., "message": ...}}`. Una entrada inválida recibe **400**; una petición sin sesión, **401**; un recurso inexistente o de otro usuario, **404**; y un conflicto de versión, **409**. Las eliminaciones correctas responden **204**, sin cuerpo.
 
-SQLite conserva usuarios, tareas y sesiones entre reinicios. Cada consulta de tareas se restringe al propietario; las consultas SQL utilizan parámetros. Las contraseñas se derivan con `scrypt` y una sal aleatoria. Las sesiones usan una cookie `HttpOnly`, `SameSite=Strict` y `Secure` en producción; al iniciar sesión se renueva el identificador y al salir se invalida. La clave de firma se guarda fuera del control de versiones; en producción debe proporcionarse de forma segura y tener al menos 32 caracteres.
+## 3. Persistencia y sesiones
+
+SQLite conserva usuarios, tareas y sesiones en disco. Las consultas utilizan parámetros y restringen el acceso por propietario. Las contraseñas se almacenan mediante una derivación con `scrypt` y una sal aleatoria. La cookie de sesión es `HttpOnly` y `SameSite=Strict`; en producción también utiliza `Secure`. El identificador de sesión se renueva al iniciar sesión y se invalida al salir.
+
 
 ---
 
-## Comunicación en tiempo real
+## 4. Conflictos y notificaciones en tiempo real
 
-El cliente abre un `EventSource` autenticado hacia `/api/events`. El servidor emite `task.created`, `task.updated` y `task.deleted` después de las escrituras. Sólo reciben el aviso las conexiones del usuario propietario. La interfaz actualiza el listado al recibir un evento y comunica el estado de conexión. SSE resulta apropiado porque el caso necesita avisos del servidor al navegador; las acciones del cliente permanecen en las rutas REST.
+Para evitar que una edición sobrescriba otra, las actualizaciones y eliminaciones exigen la versión conocida de la tarea. La escritura comprueba esa versión en la consulta SQL. Si ya cambió, devuelve **409** y el cliente debe consultar el estado vigente antes de reintentar.
 
-## Verificación y reproducción
+La interfaz abre una conexión autenticada con `EventSource`. Después de guardar un cambio, el servidor emite `task.created`, `task.updated` o `task.deleted`. El aviso llega únicamente a las conexiones del usuario propietario y la interfaz vuelve a consultar su listado. Se eligió Server-Sent Events (SSE) porque se necesitan avisos del servidor al navegador; las acciones del usuario siguen realizándose mediante peticiones REST.
 
-Desde la raíz: `npm ci`, `npm test` y `npm start`. En este cloud se instala con `npm ci --cache /workspace/.npm-cache`. El servidor escucha por defecto en el puerto 3000 y sirve la interfaz en `/`. Las pruebas de integración usan bases de datos temporales para no alterar los datos de desarrollo. La validación contempla CRUD, errores de entrada, registro y acceso, aislamiento, conflictos de versión, persistencia y recepción de eventos. La instalación reproducible fue verificada y `npm audit` no encontró vulnerabilidades. **Resultado: 13 pruebas aprobadas de 13; 0 fallidas y 0 omitidas. `npm run check` también pasó.**
+## 5. Pruebas y resultados
 
-En Chromium se verificaron registro y acceso, CRUD, filtros, cierre de sesión y persistencia. Dos pestañas recibieron eventos de creación, actualización y eliminación. La vista móvil de 390 px funcionó sin desbordamiento ni excepciones JavaScript. Las capturas y el detalle de verificación están en `docs/evidencias/`, como anexos separados. La ejecución se validó con Node.js 24.19.0; la demostración web pública queda pendiente de despliegue.
+Las **13 pruebas de integración fueron aprobadas**, sin fallos ni omisiones. Se comprobaron el CRUD, las entradas inválidas, el registro y el cierre de sesión, el aislamiento entre usuarios, la persistencia después de reiniciar, las ediciones simultáneas y la recepción de eventos. También se verificó que una sesión caducada no permita consultar datos ni recibir nuevas notificaciones.
 
-## Alcance y entrega
+En Chromium se comprobó el flujo de registro, acceso y gestión de tareas. Dos pestañas reflejaron las creaciones, modificaciones y eliminaciones mediante SSE. La vista móvil de 390 píxeles no presentó desbordamiento horizontal ni excepciones de JavaScript. Las capturas y el registro de verificación están en `docs/evidencias/`.
 
-La implementación usa un proceso Node.js y un archivo SQLite. Una ejecución con varias réplicas requeriría distribuir los eventos mediante un servicio compartido. Para publicar la demostración se necesita HTTPS, un proxy de confianza correctamente configurado, almacenamiento persistente y copias de seguridad. El repositorio y las evidencias complementan este informe, limitado a dos páginas. Antes de entregar, completar el autor y renombrar el PDF a **Apellido_Nombre_AplWeb_U2.pdf**; añadir la URL de demostración sólo si está disponible.
+**Ejemplo de uso.** Una petición `POST /api/tasks` con `{"title":"Preparar informe"}` devuelve **201** y una tarea con estado `pending` y versión `1`. Al enviar `PATCH /api/tasks/:id` con `{"status":"completed","version":1}`, la respuesta es **200** y la versión pasa a `2`. Repetir la actualización con la versión anterior devuelve **409**, sin modificar la tarea. El README contiene ejemplos completos de petición y respuesta con `curl` y cookies de sesión.
+
+## 6. Ejecución y alcance
+
+El proyecto requiere Node.js 24 o superior. Desde la raíz del repositorio se ejecutan `npm ci`, `npm test` y `npm start`. El servidor utiliza por defecto el puerto 3000 y sirve la interfaz en `/`. La base de datos se crea al iniciar y las pruebas usan archivos temporales independientes de los datos de desarrollo.
+
+La solución está preparada para un proceso Node.js y un archivo SQLite. Un despliegue con varias réplicas necesitaría compartir las notificaciones entre procesos. Para ofrecer acceso público también se requiere HTTPS, almacenamiento persistente y una gestión segura de la clave de sesión. El código y las evidencias están publicados en el repositorio indicado; la demostración se ha validado en ejecución local.
 
 ## Referencias
 

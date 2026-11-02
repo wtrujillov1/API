@@ -137,14 +137,14 @@ Esta aplicación académica está diseñada para un proceso Node.js y una base S
 
 1. Consultar el código, las pruebas y la documentación en <https://github.com/wtrujillov1/API>.
 2. Ejecutar `npm ci`, `npm test` y una demostración de registro, CRUD, conflicto y notificación en dos pestañas.
-3. Completar el autor y cualquier URL pública de demostración en el informe. No inventar una URL si no se ha desplegado.
-4. Revisar el PDF de máximo dos páginas en `docs/Apellido_Nombre_AplWeb_U2.pdf` y renombrarlo con los datos del estudiante. Sus fuentes editables están en `docs/informe.md` y `docs/informe.html`.
+3. Consultar el informe técnico de Wilmer Andrés Trujillo Vera. Incorporar una URL pública de demostración cuando exista un despliegue.
+4. Revisar el PDF de dos páginas en [`docs/Trujillo_Wilmer_AplWeb_U2.pdf`](docs/Trujillo_Wilmer_AplWeb_U2.pdf). Sus fuentes editables están en `docs/informe.md` y `docs/informe.html`.
 5. Adjuntar evidencias adicionales por separado; el repositorio, los anexos y las evidencias no cuentan en las dos páginas del informe.
 
 
 ## Regenerar el informe
 
-El informe ya se entrega en PDF. Para completar el autor o añadir una URL pública, edita `docs/informe.html` y su versión de texto `docs/informe.md`. Puedes abrir el HTML en un navegador e imprimir en A4, sin encabezados ni pies automáticos. Comprueba que el resultado mantiene un máximo de dos páginas.
+El informe ya se entrega en PDF. Para modificar el contenido o añadir una URL pública, edita `docs/informe.html` y su versión de texto `docs/informe.md`. Puedes abrir el HTML en un navegador e imprimir en A4, sin encabezados ni pies automáticos. Comprueba que el resultado mantiene un máximo de dos páginas.
 
 La generación utilizada en el entorno cloud está disponible como script opcional:
 
@@ -152,4 +152,4 @@ La generación utilizada en el entorno cloud está disponible como script opcion
 python3 scripts/generar-informe.py
 ```
 
-Requiere el paquete Python `playwright` y Chromium; ambos están instalados en este entorno. El script usa `/usr/bin/chromium` por defecto y permite otro ejecutable mediante `CHROMIUM_PATH`. El PDF se guarda en `docs/Apellido_Nombre_AplWeb_U2.pdf`. Renómbralo con tu apellido y nombre al entregar. Estas herramientas sólo regeneran el documento; no son dependencias de la API.
+Requiere el paquete Python `playwright` y Chromium; ambos están instalados en este entorno. El script usa `/usr/bin/chromium` por defecto y permite otro ejecutable mediante `CHROMIUM_PATH`. El PDF se guarda en `docs/Trujillo_Wilmer_AplWeb_U2.pdf`. Estas herramientas sólo regeneran el documento; no son dependencias de la API.

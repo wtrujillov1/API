@@ -1,68 +1,110 @@
 <!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8">
-  <title>Informe técnico — API REST de tareas</title>
-  <style>
-    @page { size: A4; margin: 17mm 19mm; }
-    * { box-sizing: border-box; }
-    body { margin: 0; color: #172231; font: 10.2pt/1.36 Arial, sans-serif; }
-    h1 { margin: 0 0 9pt; color: #123c5a; font-size: 18pt; line-height: 1.15; }
-    h2 { margin: 13pt 0 5pt; color: #123c5a; font-size: 11.7pt; }
-    p { margin: 0 0 7pt; }
-    .meta { font-size: 9pt; color: #3e4c59; }
-    table { border-collapse: collapse; width: 100%; margin: 7pt 0; font-size: 8.7pt; }
-    th, td { padding: 4pt 5pt; text-align: left; border-bottom: 1px solid #cbd5dc; }
-    th { background: #edf3f7; }
-    code { font: 8.5pt/1.3 monospace; overflow-wrap: anywhere; }
-    a { color: #123c5a; text-decoration: none; }
-    .page { break-after: page; }
-    .page:last-child { break-after: auto; }
-    .page-number { margin-top: 12pt; font-size: 8pt; color: #627181; text-align: right; }
-    .references p { padding-left: 12pt; text-indent: -12pt; font-size: 9pt; }
-  </style>
-</head>
-<body>
-<section class="page">
-  <h1>API REST de tareas con persistencia,<br>sesiones y tiempo real</h1>
-  <p class="meta"><strong>Autor:</strong> pendiente de completar<br>
-    <strong>Repositorio:</strong> <a href="https://github.com/wtrujillov1/API">https://github.com/wtrujillov1/API</a><br>
-    <strong>Demostración pública:</strong> pendiente de despliegue; interfaz local con <code>npm start</code>.</p>
-  <h2>Objetivo y diseño</h2>
-  <p>Se desarrolla una API para que cada usuario registre y gestione sus tareas. La solución integra Node.js 24, Express 5, SQLite y una interfaz web en español. Se elige SQLite por su persistencia en disco sin un servicio externo; el módulo <code>node:sqlite</code> permite consultas parametrizadas. La aplicación separa composición HTTP, validación, persistencia y arranque, y mantiene las transformaciones de entrada separadas de las operaciones de E/S.</p>
-  <h2>Contrato REST y validación</h2>
-  <table>
-    <thead><tr><th>Operación</th><th>Ruta</th><th>Respuesta</th></tr></thead>
-    <tbody>
-      <tr><td>Registro / acceso</td><td><code>POST /api/auth/register</code><br><code>POST /api/auth/login</code></td><td>201 / 200</td></tr>
-      <tr><td>Sesión / cierre</td><td><code>GET /api/auth/me</code><br><code>POST /api/auth/logout</code></td><td>200 / 204</td></tr>
-      <tr><td>Consulta / creación</td><td><code>GET /api/tasks</code>, <code>GET /api/tasks/:id</code><br><code>POST /api/tasks</code></td><td>200 / 201</td></tr>
-      <tr><td>Actualización</td><td><code>PATCH /api/tasks/:id</code></td><td>200</td></tr>
-      <tr><td>Eliminación</td><td><code>DELETE /api/tasks/:id?version=N</code></td><td>204</td></tr>
-      <tr><td>Tiempo real</td><td><code>GET /api/events</code></td><td>Flujo SSE</td></tr>
-    </tbody>
-  </table>
-  <p>Una tarea contiene identificador UUID, título de 1–120 caracteres, descripción de hasta 2000, estado (<code>pending</code>, <code>in_progress</code>, <code>completed</code>), versión y fechas; título y descripción rechazan NUL. Las respuestas con contenido usan <code>{data: ...}</code>; los errores, <code>{error: {code, message, details?}}</code>. Se emplean <code>400</code> para entradas inválidas, <code>401</code> sin sesión, <code>404</code> para recursos no accesibles y <code>409</code> para conflictos; también <code>403</code> por origen prohibido, <code>413</code> por cuerpo superior a 16 KB, <code>415</code> por formato o codificación no admitidos y <code>503</code> si SQLite está ocupado. Actualizar o eliminar exige la versión conocida y evita sobrescribir cambios más recientes.</p>
-  <p>Ejemplo: <code>POST /api/tasks</code> con <code>{"title":"Preparar informe"}</code> devuelve <code>201</code> y una tarea de versión <code>1</code>. Un <code>PATCH</code> con <code>{"status":"completed","version":1}</code> devuelve la tarea actualizada. Reutilizar la versión anterior produce <code>409</code>. El README incluye peticiones completas con <code>curl</code>, cookies y respuestas.</p>
-  <h2>Persistencia, sesión y seguridad</h2>
-  <p>SQLite conserva usuarios, tareas y sesiones entre reinicios. Cada consulta de tareas se restringe al propietario; las consultas SQL utilizan parámetros. Las contraseñas se derivan con <code>scrypt</code> y una sal aleatoria. Las sesiones usan una cookie <code>HttpOnly</code>, <code>SameSite=Strict</code> y <code>Secure</code> en producción; al autenticar se renueva el identificador y al salir se invalida. La clave de firma queda fuera de Git; en producción debe proporcionarse de forma segura y tener al menos 32 caracteres.</p>
-  <p class="page-number">1 / 2</p>
-</section>
-<section class="page">
-  <h2>Comunicación en tiempo real</h2>
-  <p>El cliente abre un <code>EventSource</code> autenticado hacia <code>/api/events</code>. El servidor emite <code>task.created</code>, <code>task.updated</code> y <code>task.deleted</code> después de las escrituras. Sólo reciben el aviso las conexiones del usuario propietario. La interfaz actualiza el listado al recibir un evento y comunica el estado de conexión. SSE resulta apropiado porque el caso necesita avisos del servidor al navegador; las acciones del cliente permanecen en las rutas REST.</p>
-  <h2>Verificación y reproducción</h2>
-  <p>Desde la raíz: <code>npm ci</code>, <code>npm test</code> y <code>npm start</code>. En este cloud se instala con <code>npm ci --cache /workspace/.npm-cache</code>. El servidor escucha por defecto en el puerto 3000 y sirve la interfaz en <code>/</code>. Las pruebas de integración usan bases de datos temporales para no alterar los datos de desarrollo. La validación contempla CRUD, errores de entrada, registro y acceso, aislamiento, conflictos de versión, persistencia y recepción de eventos. La instalación reproducible fue verificada y <code>npm audit</code> no encontró vulnerabilidades. <strong>Resultado: 13 pruebas aprobadas de 13; 0 fallidas y 0 omitidas. <code>npm run check</code> también pasó.</strong></p>
-  <p>En Chromium se verificaron registro y acceso, CRUD, filtros, cierre de sesión y persistencia. Dos pestañas recibieron eventos de creación, actualización y eliminación. La vista móvil de 390 px funcionó sin desbordamiento ni excepciones JavaScript. Las capturas y el detalle de verificación están en <code>docs/evidencias/</code>, como anexos separados. Se validó con Node.js 24.19.0; la demostración web pública queda pendiente de despliegue.</p>
-  <h2>Alcance y entrega</h2>
-  <p>La implementación usa un proceso Node.js y un archivo SQLite. Varias réplicas requerirían distribuir los eventos mediante un servicio compartido. Un despliegue público necesita HTTPS, un proxy de confianza correctamente configurado, almacenamiento persistente y copias de seguridad. El repositorio y las evidencias complementan este informe, limitado a dos páginas. Antes de entregar, completar el autor y renombrar el PDF a <strong>Apellido_Nombre_AplWeb_U2.pdf</strong>; añadir la URL de demostración sólo si está disponible.</p>
-  <h2>Referencias</h2>
-  <div class="references">
-    <p>Brown, E. (2020). <em>Web development with Node &amp; Express</em> (2.ª ed.). O’Reilly Media.</p>
-    <p>Duckett, J. (2014). <em>JavaScript &amp; jQuery: Interactive front-end web development</em>. Wiley.</p>
-    <p>Robbins, J. N. (2018). <em>Learning web design</em> (5.ª ed.). O’Reilly Media.</p>
-  </div>
-  <p class="page-number">2 / 2</p>
-</section>
-</body>
-</html>
+<html lang="es"><head><meta charset="utf-8"><meta name="author" content="Wilmer Andrés Trujillo Vera"><meta name="description" content="Informe técnico de la API REST de tareas: persistencia, sesiones y notificaciones en tiempo real."><title>Informe técnico — Wilmer Andrés Trujillo Vera</title><style>
+@page { size: A4; margin: 17mm 19mm 16mm; }
+* { box-sizing: border-box; }
+body { margin: 0; color: #222b35; font: 10.6pt/1.38 Arial, "Liberation Sans", sans-serif; }
+.page { height: 263mm; display: flex; flex-direction: column; break-after: page; }
+.page:last-child { break-after: auto; }
+header, footer { flex-shrink: 0; }
+.kicker { margin: 0 0 6pt; font-size: 8.2pt; font-weight: 700; letter-spacing: 1pt; color: #4d647a; }
+h1 { margin: 0 0 5pt; color: #17344e; font-size: 19pt; line-height: 1.16; font-weight: 700; }
+.subtitle { margin: 0; font-size: 10.5pt; color: #4d5966; }
+.identity { margin: 12pt 0 0; padding: 8pt 0 9pt; border-top: 1pt solid #234a69; border-bottom: .5pt solid #cbd3dc; font-size: 9.3pt; line-height: 1.5; }
+.identity p { margin: 0; }
+.content { flex: 1; }
+h2 { margin: 11pt 0 5pt; color: #17344e; font-size: 11.3pt; line-height: 1.2; font-weight: 700; break-after: avoid; }
+p { margin: 0 0 7pt; orphans: 2; widows: 2; }
+table { width: 100%; border-collapse: collapse; margin: 7pt 0 8pt; font-size: 8.7pt; line-height: 1.32; }
+th { padding: 5pt 5pt; background: #edf1f5; color: #17344e; font-weight: 700; text-align: left; }
+td { padding: 4.4pt 5pt; border-bottom: .5pt solid #d5dbe2; vertical-align: top; }
+th:first-child, td:first-child { width: 27%; }
+th:last-child, td:last-child { width: 14%; white-space: nowrap; }
+tr { break-inside: avoid; }
+code { font: 8.8pt/1.35 "Liberation Mono", monospace; overflow-wrap: anywhere; }
+table code { font-size: 8.0pt; }
+a { color: #17344e; text-decoration: none; }
+.continuation { display: flex; justify-content: space-between; border-bottom: 1pt solid #234a69; padding: 0 0 9pt; margin-bottom: 1pt; color: #4d647a; font-size: 8.2pt; }
+.references { margin-top: 10pt; }
+.references h2 { margin-top: 0; }
+.references p { padding-left: 15pt; text-indent: -15pt; font-size: 9.1pt; line-height: 1.35; margin-bottom: 5pt; }
+footer { display: flex; justify-content: space-between; padding-top: 7pt; border-top: .5pt solid #cbd3dc; font-size: 8pt; color: #657281; }
+</style></head><body>
+<article class="page" aria-label="Página 1">
+<header><p class="kicker">INFORME TÉCNICO · UNIDAD 2</p><h1>API REST para la gestión de tareas</h1><p class="subtitle">Persistencia, sesiones y notificaciones en tiempo real</p><div class="identity"><p><strong>Autor:</strong> Wilmer Andrés Trujillo Vera</p><p><strong>Repositorio:</strong> <a href="https://github.com/wtrujillov1/API">https://github.com/wtrujillov1/API</a></p></div></header>
+<div class="content"><h2 id="propósito-y-organización">1. Propósito y organización</h2>
+<p>Se desarrolló una API REST para que cada usuario pueda registrar, consultar, actualizar y eliminar sus tareas. El proyecto utiliza Node.js 24, Express 5 y SQLite. Incluye una interfaz web en español para demostrar las operaciones y observar los cambios desde dos pestañas.</p>
+<p>El código se divide en rutas HTTP, validación, autenticación y acceso a datos. Las funciones que normalizan y comprueban las entradas se mantienen separadas de las consultas a la base de datos. Esta organización facilita revisar cada responsabilidad y evita mezclar las reglas de una tarea con la forma de almacenarla.</p>
+<h2 id="operaciones-y-validación">2. Operaciones y validación</h2>
+<table>
+<colgroup>
+<col style="width: 27%" />
+<col style="width: 59%" />
+<col style="width: 14%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Operación</th>
+<th style="text-align: left;">Método y ruta</th>
+<th style="text-align: left;">Respuesta</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Registro e inicio de sesión</td>
+<td style="text-align: left;"><code>POST /api/auth/register</code><br><code>POST /api/auth/login</code></td>
+<td style="text-align: left;">201 / 200</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Consultar y cerrar sesión</td>
+<td style="text-align: left;"><code>GET /api/auth/me</code><br><code>POST /api/auth/logout</code></td>
+<td style="text-align: left;">200 / 204</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Listar y consultar tareas</td>
+<td style="text-align: left;"><code>GET /api/tasks</code><br><code>GET /api/tasks/:id</code></td>
+<td style="text-align: left;">200</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Crear una tarea</td>
+<td style="text-align: left;"><code>POST /api/tasks</code></td>
+<td style="text-align: left;">201</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Modificar una tarea</td>
+<td style="text-align: left;"><code>PATCH /api/tasks/:id</code></td>
+<td style="text-align: left;">200</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Eliminar una tarea</td>
+<td style="text-align: left;"><code>DELETE /api/tasks/:id?version=N</code></td>
+<td style="text-align: left;">204</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Recibir notificaciones</td>
+<td style="text-align: left;"><code>GET /api/events</code></td>
+<td style="text-align: left;">Flujo SSE</td>
+</tr>
+</tbody>
+</table>
+<p>Cada tarea tiene un identificador, título, descripción, estado, versión y fechas de creación y actualización. El título admite entre 1 y 120 caracteres y la descripción, hasta 2000. Los estados permitidos son <code>pending</code>, <code>in_progress</code> y <code>completed</code>. La entrada se valida antes de guardar los datos.</p>
+<p>Las respuestas con contenido siguen el formato <code>{"data": ...}</code> y los errores, <code>{"error": {"code": ..., "message": ...}}</code>. Una entrada inválida recibe <strong>400</strong>; una petición sin sesión, <strong>401</strong>; un recurso inexistente o de otro usuario, <strong>404</strong>; y un conflicto de versión, <strong>409</strong>. Las eliminaciones correctas responden <strong>204</strong>, sin cuerpo.</p>
+<h2 id="persistencia-y-sesiones">3. Persistencia y sesiones</h2>
+<p>SQLite conserva usuarios, tareas y sesiones en disco. Las consultas utilizan parámetros y restringen el acceso por propietario. Las contraseñas se almacenan mediante una derivación con <code>scrypt</code> y una sal aleatoria. La cookie de sesión es <code>HttpOnly</code> y <code>SameSite=Strict</code>; en producción también utiliza <code>Secure</code>. El identificador de sesión se renueva al iniciar sesión y se invalida al salir.</p>
+</div><footer><span>Wilmer Andrés Trujillo Vera · Aplicaciones web</span><span>1 / 2</span></footer></article>
+<article class="page" aria-label="Página 2"><header class="continuation"><span>API REST PARA LA GESTIÓN DE TAREAS</span><span>VALIDACIÓN Y RESULTADOS</span></header><div class="content"><h2 id="conflictos-y-notificaciones-en-tiempo-real">4. Conflictos y notificaciones en tiempo real</h2>
+<p>Para evitar que una edición sobrescriba otra, las actualizaciones y eliminaciones exigen la versión conocida de la tarea. La escritura comprueba esa versión en la consulta SQL. Si ya cambió, devuelve <strong>409</strong> y el cliente debe consultar el estado vigente antes de reintentar.</p>
+<p>La interfaz abre una conexión autenticada con <code>EventSource</code>. Después de guardar un cambio, el servidor emite <code>task.created</code>, <code>task.updated</code> o <code>task.deleted</code>. El aviso llega únicamente a las conexiones del usuario propietario y la interfaz vuelve a consultar su listado. Se eligió Server-Sent Events (SSE) porque se necesitan avisos del servidor al navegador; las acciones del usuario siguen realizándose mediante peticiones REST.</p>
+<h2 id="pruebas-y-resultados">5. Pruebas y resultados</h2>
+<p>Las <strong>13 pruebas de integración fueron aprobadas</strong>, sin fallos ni omisiones. Se comprobaron el CRUD, las entradas inválidas, el registro y el cierre de sesión, el aislamiento entre usuarios, la persistencia después de reiniciar, las ediciones simultáneas y la recepción de eventos. También se verificó que una sesión caducada no permita consultar datos ni recibir nuevas notificaciones.</p>
+<p>En Chromium se comprobó el flujo de registro, acceso y gestión de tareas. Dos pestañas reflejaron las creaciones, modificaciones y eliminaciones mediante SSE. La vista móvil de 390 píxeles no presentó desbordamiento horizontal ni excepciones de JavaScript. Las capturas y el registro de verificación están en <code>docs/evidencias/</code>.</p>
+<p><strong>Ejemplo de uso.</strong> Una petición <code>POST /api/tasks</code> con <code>{"title":"Preparar informe"}</code> devuelve <strong>201</strong> y una tarea con estado <code>pending</code> y versión <code>1</code>. Al enviar <code>PATCH /api/tasks/:id</code> con <code>{"status":"completed","version":1}</code>, la respuesta es <strong>200</strong> y la versión pasa a <code>2</code>. Repetir la actualización con la versión anterior devuelve <strong>409</strong>, sin modificar la tarea. El README contiene ejemplos completos de petición y respuesta con <code>curl</code> y cookies de sesión.</p>
+<h2 id="ejecución-y-alcance">6. Ejecución y alcance</h2>
+<p>El proyecto requiere Node.js 24 o superior. Desde la raíz del repositorio se ejecutan <code>npm ci</code>, <code>npm test</code> y <code>npm start</code>. El servidor utiliza por defecto el puerto 3000 y sirve la interfaz en <code>/</code>. La base de datos se crea al iniciar y las pruebas usan archivos temporales independientes de los datos de desarrollo.</p>
+<p>La solución está preparada para un proceso Node.js y un archivo SQLite. Un despliegue con varias réplicas necesitaría compartir las notificaciones entre procesos. Para ofrecer acceso público también se requiere HTTPS, almacenamiento persistente y una gestión segura de la clave de sesión. El código y las evidencias están publicados en el repositorio indicado; la demostración se ha validado en ejecución local.</p>
+<div class="references"><h2 id="referencias">Referencias</h2>
+<p>Brown, E. (2020). <em>Web development with Node &amp; Express</em> (2.ª ed.). O’Reilly Media.</p>
+<p>Duckett, J. (2014). <em>JavaScript &amp; jQuery: Interactive front-end web development</em>. Wiley.</p>
+<p>Robbins, J. N. (2018). <em>Learning web design</em> (5.ª ed.). O’Reilly Media.</p>
+
+</div></div><footer><span>Wilmer Andrés Trujillo Vera · Aplicaciones web</span><span>2 / 2</span></footer></article>
+</body></html>

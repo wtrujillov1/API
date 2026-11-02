@@ -9,7 +9,7 @@ from playwright.sync_api import sync_playwright
 def main():
     root = Path(__file__).resolve().parent.parent
     source = root / "docs" / "informe.html"
-    destination = root / "docs" / "Apellido_Nombre_AplWeb_U2.pdf"
+    destination = root / "docs" / "Trujillo_Wilmer_AplWeb_U2.pdf"
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
             executable_path=os.environ.get("CHROMIUM_PATH", "/usr/bin/chromium"),
